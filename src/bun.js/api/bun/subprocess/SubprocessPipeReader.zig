@@ -110,7 +110,13 @@ pub fn toOwnedSlice(this: *PipeReader) []u8 {
     if (this.state == .done) {
         return this.state.done;
     }
-    // we do not use .toOwnedSlice() because we don't want to reallocate memory.
+
+    // Shrink the buffer to fit before taking ownership.
+    // This is critical because consumers (like Blob.Store.Bytes) will store
+    // the slice length as the capacity and free that many bytes.
+    // If we don't shrink, the difference between capacity and length is leaked.
+    this.reader._buffer.shrinkAndFree(this.reader._buffer.items.len);
+
     const out = this.reader._buffer;
     this.reader._buffer.items = &.{};
     this.reader._buffer.capacity = 0;
